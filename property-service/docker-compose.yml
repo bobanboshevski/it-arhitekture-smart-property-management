@@ -1,0 +1,27 @@
+services:
+  property-db:
+    image: postgres:15
+    env_file:
+      - .env.docker
+    #    environment:
+    #      POSTGRES_USER: postgres
+    #      POSTGRES_PASSWORD: postgres
+    #      POSTGRES_DB: propertydb
+    ports:
+      - "5433:5432"
+    volumes:
+      - property_data:/var/lib/postgresql/data
+
+
+  property-service:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - property-db
+    env_file:
+      - .env.docker
+
+
+volumes:
+  property_data:
