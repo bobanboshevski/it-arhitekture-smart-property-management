@@ -7,7 +7,7 @@ on:
     branches:
       - main
   workflow_dispatch:
-    
+
 
 jobs:
   build-and-test:
@@ -31,9 +31,9 @@ jobs:
             maven -
 
       - name: Run tests
-        run: mvn -B test
+        run: mvn -B -f property-service/pom.xml test
 
       - name: Build Docker image
-        run: docker build -t property-service .
+        run: docker build -t property-service ./property-service
 
 
