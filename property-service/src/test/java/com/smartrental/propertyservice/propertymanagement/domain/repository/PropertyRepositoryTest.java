@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,6 +53,46 @@ public class PropertyRepositoryTest {
 
         assertThat(found).isPresent();
         assertThat(found.get().getName()).isEqualTo("Test Property");
+    }
+
+    @Test
+    @DisplayName("Should return all properties")
+    void shouldFindAll() {
+
+        repository.save(Property.builder()
+                .name("P1")
+                .location("City1")
+                .basePrice(new BigDecimal("50"))
+                .build());
+
+        repository.save(Property.builder()
+                .name("P2")
+                .location("City2")
+                .basePrice(new BigDecimal("70"))
+                .build());
+
+        List<Property> properties = repository.findAll();
+
+        assertThat(properties).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("Should delete property")
+    void shouldDeleteProperty() {
+
+        Property property = repository.save(
+                Property.builder()
+                        .name("Delete Test")
+                        .location("City")
+                        .basePrice(new BigDecimal("80"))
+                        .build()
+        );
+
+        repository.deleteById(property.getId());
+
+        Optional<Property> result = repository.findById(property.getId());
+
+        assertThat(result).isEmpty();
     }
 
 }
