@@ -1,11 +1,13 @@
 name: Booking and Analytics Service CI
 on:
-  push:
-    paths:
-      - 'booking-analytics-service/**'
-  pull_request:
-    paths:
-      - 'booking-analytics-service/**'
+  workflow_call:
+    workflow_dispatch:
+#  push:
+#    paths:
+#      - 'booking-analytics-service/**'
+#  pull_request:
+#    paths:
+#      - 'booking-analytics-service/**'
 
 jobs:
   test:

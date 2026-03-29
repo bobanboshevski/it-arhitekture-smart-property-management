@@ -1,0 +1,40 @@
+name: Dynamic pricing service CI
+on:
+  workflow_call:
+    workflow_dispatch:
+#  push:
+#    paths:
+#      - 'dynamic-pricing-service/**'
+#  pull_request:
+#    paths:
+#      - 'dynamic-pricing-service/**'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd dynamic-pricing-service
+          npm ci
+
+      - name: Run tests
+        run: |
+          cd dynamic-pricing-service
+          npm run test -- --coverage
+
+      - name: Build app
+        run: |
+          cd dynamic-pricing-service
+          npm run build
+
+      - name: Build Docker image
+        run: docker build -t dynamic-pricing-service ./dynamic-pricing-service
