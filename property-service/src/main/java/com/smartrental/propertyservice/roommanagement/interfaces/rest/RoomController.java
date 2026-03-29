@@ -7,15 +7,18 @@ import com.smartrental.propertyservice.roommanagement.interfaces.dto.RoomRespons
 import com.smartrental.propertyservice.roommanagement.interfaces.mapper.RoomMapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/rooms")
 @RequiredArgsConstructor
-@Tag(name= "Rooms", description = "Room management API")
+@Tag(name = "Rooms", description = "Room management API")
 public class RoomController {
 
     private final RoomService roomService;
@@ -53,4 +56,24 @@ public class RoomController {
     public void deleteRoom(@PathVariable UUID id) {
         roomService.delete(id);
     }
+
+    @GetMapping("/{roomid}/exists")
+    public ResponseEntity<Boolean> checkRoomExists(@PathVariable UUID roomid) {
+        boolean exists = roomService.roomExists(roomid);
+        return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/{roomId}/basePrice")
+    public ResponseEntity<Map<String, BigDecimal>> getRoomPrice(@PathVariable String roomId) {
+
+        // all the rooms in the same property have the same based price, stored in the property entity
+        BigDecimal price = roomService.getBasePriceByRoomId(roomId);
+
+        if (price == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(Map.of("price", price));
+    }
+
 }

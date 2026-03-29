@@ -21,6 +21,5 @@ COPY --from=build /app/target/*.jar app.jar
 
 # tell Java to read environment variables for Spring
 # application-docker.yml
-#ENV SPRING_PROFILES_ACTIVE=docker
-
+ENV SPRING_PROFILES_ACTIVE=docker
 ENTRYPOINT ["java", "-jar", "app.jar"]

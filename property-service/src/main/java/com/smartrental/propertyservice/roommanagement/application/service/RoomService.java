@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -75,6 +76,21 @@ public class RoomService {
         }
 
         roomRepository.deleteById(id);
+    }
+
+    public boolean roomExists(UUID roomId) {
+        log.info("Checking if room exists with id: {}", roomId);
+        return roomRepository.existsById(roomId);
+    }
+
+    public BigDecimal getBasePriceByRoomId(String roomId) {
+        Room room = roomRepository.findById(UUID.fromString(roomId))
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        Property property = propertyRepository.findById(room.getProperty().getId())
+                .orElseThrow(() -> new RuntimeException("Property not found"));
+
+        return property.getBasePrice();
     }
 
 

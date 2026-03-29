@@ -1,0 +1,150 @@
+services:
+  # DATABASES
+  property-db:
+    image: postgres:15
+    #    env_file:
+    #      - property-service/.env.docker
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: propertydb
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d propertydb" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5433:5432"
+    volumes:
+      - property_data:/var/lib/postgresql/data
+    networks:
+      - smart-hotel-network
+
+  booking-db:
+    image: postgres:15
+    container_name: booking-db
+    env_file:
+      - booking-analytics-service/.env.docker
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U booking_user -d booking_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - booking_data:/var/lib/postgresql/data
+    networks:
+      - smart-hotel-network
+
+  dynamic-pricing-db:
+    image: postgres:15
+    container_name: dynamic-pricing-db
+    env_file:
+      - dynamic-pricing-service/.env.docker
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d dynamic_pricing" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5438:5432"
+    volumes:
+      - dynamic_pricing_data:/var/lib/postgresql/data
+    networks:
+      - smart-hotel-network
+
+  #  MESSAGING
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - smart-hotel-network
+
+  # SERVICES
+  property-service:
+    build: property-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      property-db:
+        condition: service_healthy
+    #    environment:
+    #      SPRING_DATASOURCE_URL: jdbc:postgresql://property-db:5432/propertydb
+    #      SPRING_DATASOURCE_USERNAME: postgres
+    #      SPRING_DATASOURCE_PASSWORD: postgres
+    #      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    env_file:
+      - property-service/.env.docker
+    networks:
+      - smart-hotel-network
+
+  booking-migrate:
+    image: migrate/migrate:v4.19.1
+    depends_on:
+      booking-db:
+        condition: service_healthy
+    #    env_file:
+    #      - ./booking-analytics-service/.env.local.docker
+    volumes:
+      - ./booking-analytics-service/migrations:/migrations
+    command: >
+      -path /migrations
+      -database postgres://${BOOKING_POSTGRES_USER}:${BOOKING_POSTGRES_PASSWORD}@${BOOKING_POSTGRES_HOST}:${BOOKING_POSTGRES_PORT}/${BOOKING_POSTGRES_DB}?sslmode=disable
+      up
+    networks:
+      - smart-hotel-network
+
+  booking-analytics-service:
+    build: booking-analytics-service
+    ports:
+      - "50051:50051"
+    depends_on:
+      booking-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+        # todo: do we need to add the migration as depends on?
+    env_file:
+      - booking-analytics-service/.env.docker
+    environment:
+      ENV_FILE: /app/.env.docker
+    networks:
+      - smart-hotel-network
+
+  #  todo: create the docker file !
+  dynamic-pricing-service:
+    build: dynamic-pricing-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      dynamic-pricing-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - dynamic-pricing-service/.env.docker
+    networks:
+      - smart-hotel-network
+
+volumes:
+  property_data:
+  booking_data:
+  dynamic_pricing_data:
+
+networks:
+  smart-hotel-network:
+
+
+
+
+
+

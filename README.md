@@ -173,5 +173,10 @@ Arhitektura omogoča modularnost, razširljivost in jasno ločitev odgovornosti 
 
 
 
+---
 
+## Dokumentacija
+
+- property service: /swagger-ui/index.html#/
+- dynamic pricing service: /api/docs
 
