@@ -50,10 +50,6 @@ public class PropertyController {
         propertyService.delete(id);
     }
 
-    /*
-    TODO: TESTINGGG!
-     */
-
     @GetMapping
     public List<PropertyResponseDTO> getAll() {
         return propertyService.findAll().stream()

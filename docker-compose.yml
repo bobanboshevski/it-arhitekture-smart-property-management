@@ -135,6 +135,21 @@ services:
     networks:
       - smart-hotel-network
 
+  web-api-gateway:
+    build: web-api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - booking-analytics-service
+      - property-service
+      - dynamic-pricing-service
+    env_file:
+      - web-api-gateway/.env.docker
+    environment:
+      PORT: 3000
+    networks:
+      - smart-hotel-network
+
 volumes:
   property_data:
   booking_data:

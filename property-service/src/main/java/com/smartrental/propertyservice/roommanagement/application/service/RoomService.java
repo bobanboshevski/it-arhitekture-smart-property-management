@@ -93,5 +93,17 @@ public class RoomService {
         return property.getBasePrice();
     }
 
+    public List<Room> findByPropertyId(UUID propertyId) {
+        log.info("Finding rooms for property id: {}", propertyId);
+
+        // Verify the property exists first — throws 404 if not
+        propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Property not found with id: " + propertyId));
+
+        return roomRepository.findByPropertyId(propertyId);
+
+    }
+
 
 }

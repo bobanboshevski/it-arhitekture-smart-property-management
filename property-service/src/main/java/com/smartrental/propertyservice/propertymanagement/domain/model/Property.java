@@ -25,6 +25,6 @@ public class Property {
     private BigDecimal basePrice;
 
     // todo: im not sure if i need this
-//    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL)
-//    private List<Room> rooms;
+    //    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL)
+    //    private List<Room> rooms;
 }

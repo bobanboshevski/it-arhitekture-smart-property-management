@@ -19,6 +19,7 @@ func NewPostgresAnalyticsRepository(db *sql.DB) repository.AnalyticsRepository {
 // Monthly stats
 func (r *PostgresAnalyticsRepository) GetMonthlyStats(roomID string, start, end time.Time) (int, float64, error) {
 
+	// todo: the pricing per room is just hardcoded to 100 for simplifying.
 	query := `
 		SELECT COUNT(*),
 		COALESCE(SUM((end_date - start_date) * 100), 0)

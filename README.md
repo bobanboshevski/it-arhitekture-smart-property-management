@@ -180,3 +180,6 @@ Arhitektura omogoča modularnost, razširljivost in jasno ločitev odgovornosti 
 - property service: /swagger-ui/index.html#/
 - dynamic pricing service: /api/docs
 
+## Tests
+
+- npm run tests -- --coverage -> for dynamic pricing

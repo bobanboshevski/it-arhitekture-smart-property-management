@@ -5,8 +5,10 @@ import com.smartrental.propertyservice.roommanagement.domain.model.Room;
 import com.smartrental.propertyservice.roommanagement.interfaces.dto.RoomRequestDTO;
 import com.smartrental.propertyservice.roommanagement.interfaces.dto.RoomResponseDTO;
 import com.smartrental.propertyservice.roommanagement.interfaces.mapper.RoomMapper;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,10 +20,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/rooms")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Rooms", description = "Room management API")
 public class RoomController {
 
     private final RoomService roomService;
+
 
     @PostMapping
     public RoomResponseDTO createRoom(@RequestBody RoomRequestDTO dto) {
@@ -74,6 +78,16 @@ public class RoomController {
         }
 
         return ResponseEntity.ok(Map.of("price", price));
+    }
+
+    @GetMapping("/property/{propertyId}")
+    @Operation(summary = "Get all rooms for a specific property")
+    public List<RoomResponseDTO> getRoomsByProperty(@PathVariable UUID propertyId) {
+        log.info("Fetching rooms for property: {}", propertyId);
+        return roomService.findByPropertyId(propertyId)
+                .stream()
+                .map(RoomMapper::toDTO)
+                .toList();
     }
 
 }

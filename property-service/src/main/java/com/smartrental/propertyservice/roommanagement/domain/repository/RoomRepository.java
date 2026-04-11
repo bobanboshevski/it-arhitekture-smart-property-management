@@ -17,4 +17,6 @@ public interface RoomRepository {
     void deleteById(UUID id);
 
     boolean existsById(UUID id);
+
+    List<Room> findByPropertyId(UUID propertyId);
 }
