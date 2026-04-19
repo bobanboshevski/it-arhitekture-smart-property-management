@@ -1,19 +1,21 @@
 # Dynamic Pricing Service
 
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm ci --omit=dev
+#RUN npm ci --omit=dev
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
 
+
 # second stage
-FROM node:20-alpine as runner
+FROM node:20-alpine AS runner
 
 WORKDIR /usr/src/app
 
