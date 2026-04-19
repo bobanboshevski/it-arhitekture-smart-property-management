@@ -1,5 +1,5 @@
 # BUILD STAGE
-FROM golang:1.26-alpine as builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,9 @@ WORKDIR /app
 RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /app/booking-service .
-COPY .env.docker .
+
+# i commented it, because the image needs to be environment-agnostic
+#COPY .env.docker .
 
 EXPOSE 50051
 
