@@ -18,7 +18,7 @@ func setupRepo(t *testing.T) (*testutils.TestDB, interface {
 	FindByID(string) (*model.Booking, error)
 	FindAll() ([]*model.Booking, error)
 	FindByRoomID(string) ([]*model.Booking, error)
-	HasOverlappingBooking(string, time.Time, time.Time) (bool, error)
+	HasOverlappingBooking(string, time.Time, time.Time, string) (bool, error)
 	Update(*model.Booking) error
 	DeleteByID(string) error
 }) {
@@ -130,7 +130,7 @@ func TestPostgresBookingRepository_Overlap_Detected(t *testing.T) {
 	_ = repo.Save(newBooking(roomID, "A", start, end))
 
 	// Overlapping window
-	overlap, err := repo.HasOverlappingBooking(roomID, start.Add(12*time.Hour), end.Add(12*time.Hour))
+	overlap, err := repo.HasOverlappingBooking(roomID, start.Add(12*time.Hour), end.Add(12*time.Hour), "")
 	assert.NoError(t, err)
 	assert.True(t, overlap)
 }
@@ -146,7 +146,7 @@ func TestPostgresBookingRepository_Overlap_NotDetected(t *testing.T) {
 	_ = repo.Save(newBooking(roomID, "A", start, end))
 
 	// Non-overlapping window (starts after the existing booking ends)
-	overlap, err := repo.HasOverlappingBooking(roomID, end.Add(time.Hour), end.Add(72*time.Hour))
+	overlap, err := repo.HasOverlappingBooking(roomID, end.Add(time.Hour), end.Add(72*time.Hour), "")
 	assert.NoError(t, err)
 	assert.False(t, overlap)
 }
@@ -162,7 +162,7 @@ func TestPostgresBookingRepository_Overlap_DifferentRoom(t *testing.T) {
 	_ = repo.Save(newBooking(roomID, "A", start, end))
 
 	// Same dates but a DIFFERENT room — should not overlap
-	overlap, err := repo.HasOverlappingBooking(uuid.New().String(), start, end)
+	overlap, err := repo.HasOverlappingBooking(uuid.New().String(), start, end, "")
 	assert.NoError(t, err)
 	assert.False(t, overlap)
 }

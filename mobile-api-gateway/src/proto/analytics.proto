@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package analytics;
+
+service AnalyticsService {
+  rpc GetMonthlyReport(GetMonthlyReportRequest) returns (MonthlyReportResponse);
+  rpc GetKpi(GetKpiRequest) returns (KpiResponse);
+  rpc GetOccupancyRate(GetOccupancyRateRequest) returns (OccupancyRateResponse);
+}
+
+message GetMonthlyReportRequest {
+  string room_id = 1; // todo: for now = room_id, but in the future we can expand to property-level analytics
+  string month = 2;
+  string year = 3;
+}
+
+message MonthlyReportResponse {
+  string room_id = 1;
+  int32 bookings_count = 2;
+  double revenue = 3;
+}
+
+message GetKpiRequest {
+  string room_id = 1;
+  string month = 2;
+  string year = 3;
+}
+
+message KpiResponse {
+  double adr = 1;     // Average Daily Rate
+  double revpar = 2;  // Revenue per available room
+}
+
+message GetOccupancyRateRequest {
+  string room_id = 1;
+  string month = 2;
+  string year = 3;
+}
+
+message OccupancyRateResponse {
+  double occupancy_rate = 1; // percentage of occupied rooms
+}

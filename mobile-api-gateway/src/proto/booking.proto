@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package booking;
+
+service BookingService {
+
+  rpc CreateBooking(CreateBookingRequest) returns (BookingResponse);
+
+  rpc GetBooking(GetBookingRequest) returns (BookingResponse);
+
+  rpc UpdateBooking(UpdateBookingRequest) returns (BookingResponse);
+
+  rpc DeleteBooking(DeleteBookingRequest) returns (Empty);
+
+  rpc GetBookingsByRoom(GetBookingsByRoomRequest) returns (BookingsResponse);
+}
+
+message CreateBookingRequest {
+  string room_id = 1;
+  string guest_name = 2;
+  string start_date = 3;
+  string end_date = 4;
+}
+
+message GetBookingRequest {
+  string booking_id = 1;
+}
+
+message UpdateBookingRequest {
+  string id = 1;
+  string guest_name = 2;
+  string start_date = 3;
+  string end_date = 4;
+}
+
+message DeleteBookingRequest {
+  string id = 1;
+}
+
+message GetBookingsByRoomRequest {
+  string room_id = 1;
+}
+
+message BookingResponse {
+  string id = 1;
+  string room_id = 2;
+  string guest_name = 3;
+  string start_date = 4;
+  string end_date = 5;
+}
+
+// wrapper for list response
+// Because gRPC does NOT support raw lists as return types.
+message BookingsResponse {
+  repeated BookingResponse bookings = 1;
+}
+
+// empty response (standard gRPC pattern)
+// gRPC cannot return: null, void, so we use:
+message Empty {}

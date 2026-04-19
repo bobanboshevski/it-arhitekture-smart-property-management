@@ -1,0 +1,11 @@
+{
+  "name": "smart-hotel-frontend",
+  "private": true,
+  "scripts": {
+    "serve:properties": "cd properties-mfe && npm run serve",
+    "serve:bookings": "cd bookings-mfe && npm run serve",
+    "serve:pricing": "cd pricing-mfe && npm run serve",
+    "serve:shell": "cd shell && npm run dev",
+    "serve:mfes": "npm run serve:properties & npm run serve:bookings & npm run serve:pricing"
+  }
+}

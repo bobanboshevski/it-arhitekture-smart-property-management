@@ -13,7 +13,7 @@ type BookingRepository interface {
 	FindAll() ([]*model.Booking, error)
 
 	FindByRoomID(roomID string) ([]*model.Booking, error)
-	HasOverlappingBooking(roomID string, start, end time.Time) (bool, error)
+	HasOverlappingBooking(roomID string, start, end time.Time, excludeID string) (bool, error)
 	Update(booking *model.Booking) error
 
 	DeleteByID(id string) error

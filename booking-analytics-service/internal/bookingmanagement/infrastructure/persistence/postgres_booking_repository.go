@@ -73,18 +73,37 @@ func (r *PostgresBookingRepository) FindAll() ([]*model.Booking, error) {
 	return bookings, nil
 }
 
-func (r *PostgresBookingRepository) HasOverlappingBooking(roomID string, start, end time.Time) (bool, error) {
-	query := `
-		SELECT EXISTS (
-			SELECT 1 FROM bookings
-			WHERE room_id = $1
-			AND start_date < $3
-			AND end_date > $2
-		)
-	`
+func (r *PostgresBookingRepository) HasOverlappingBooking(roomID string, start, end time.Time, excludeID string) (bool, error) {
+	var query string
+	var args []interface{}
+
+	if excludeID == "" {
+		// Creating a new booking — no ID to exclude
+		query = `
+            SELECT EXISTS (
+                SELECT 1 FROM bookings
+                WHERE room_id = $1
+                AND start_date < $3
+                AND end_date > $2
+            )
+        `
+		args = []interface{}{roomID, start, end}
+	} else {
+		// Updating an existing booking — exclude it from the check
+		query = `
+            SELECT EXISTS (
+                SELECT 1 FROM bookings
+                WHERE room_id = $1
+                AND start_date < $3
+                AND end_date > $2
+                AND id != $4
+            )
+        `
+		args = []interface{}{roomID, start, end, excludeID}
+	}
 
 	var exists bool
-	err := r.db.QueryRow(query, roomID, start, end).Scan(&exists)
+	err := r.db.QueryRow(query, args...).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check overlapping bookings: %w", err)
 	}

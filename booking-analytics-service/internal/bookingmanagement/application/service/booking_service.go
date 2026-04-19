@@ -65,7 +65,7 @@ func (s *BookingService) CreateBooking(roomID, guestName, startDateStr, endDateS
 	}
 
 	// overlap check - ensure no existing bookings for the room overlap with the requested dates
-	overlap, err := s.repo.HasOverlappingBooking(roomID, startDate, endDate)
+	overlap, err := s.repo.HasOverlappingBooking(roomID, startDate, endDate, "")
 	if err != nil {
 		logger.Log.Error("failed overlap check", zap.Error(err))
 		return nil, errors.New("unable to verify booking availability")
@@ -134,7 +134,7 @@ func (s *BookingService) UpdateBooking(id, guestName, startStr, endStr string) (
 	}
 
 	// overlap check again
-	overlap, err := s.repo.HasOverlappingBooking(booking.RoomID, start, end)
+	overlap, err := s.repo.HasOverlappingBooking(booking.RoomID, start, end, booking.ID)
 	if err != nil {
 		return nil, errors.New("unable to verify booking availability")
 	}

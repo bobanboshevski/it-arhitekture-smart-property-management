@@ -150,6 +150,20 @@ services:
     networks:
       - smart-hotel-network
 
+  mobile-api-gateway:
+    build: mobile-api-gateway
+    ports:
+      - "3001:3001"
+    depends_on:
+      - booking-analytics-service
+      - property-service
+      - dynamic-pricing-service
+    env_file:
+      - mobile-api-gateway/.env.docker
+    networks:
+      - smart-hotel-network
+
+
 volumes:
   property_data:
   booking_data:
@@ -157,6 +171,7 @@ volumes:
 
 networks:
   smart-hotel-network:
+    name: smart-hotel-network  # ← forces the exact name, no prefix
 
 
 

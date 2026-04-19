@@ -50,7 +50,7 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *pb.CreateBookin
 			return nil, errors.WrapError(codes.InvalidArgument, "room does not exist", nil)
 
 		case "room already booked for selected dates":
-			return nil, errors.WrapError(codes.FailedPrecondition, err.Error(), nil)
+			return nil, errors.WrapError(codes.InvalidArgument, err.Error(), nil)
 
 		case "invalid start date format, use YYYY-MM-DD",
 			"invalid end date format, use YYYY-MM-DD",

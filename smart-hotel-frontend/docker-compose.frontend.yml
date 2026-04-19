@@ -1,0 +1,87 @@
+#services:
+#  properties-mfe:
+#    build: properties-mfe
+#    ports:
+#      - "3010:3010"
+#    networks:
+#      - smart-hotel-network
+#
+#  bookings-mfe:
+#    build: bookings-mfe
+#    ports:
+#      - "3020:3020"
+#    networks:
+#      - smart-hotel-network
+#
+#  pricing-mfe:
+#    build: pricing-mfe
+#    ports:
+#      - "3030:3030"
+#    networks:
+#      - smart-hotel-network
+#
+#  shell:
+#    build: shell
+#    ports:
+#      - "3040:3040"
+#    depends_on:
+#      - properties-mfe
+#      - bookings-mfe
+#      - pricing-mfe
+#    networks:
+#      - smart-hotel-network
+#
+#networks:
+#  smart-hotel-network:
+#    external: true
+
+services:
+  properties-mfe:
+    build:
+      context: properties-mfe
+      args:
+        VITE_API_GATEWAY_URL: http://localhost:3000/api/v1
+    ports:
+      - "3010:3010"
+    networks:
+      - smart-hotel-network
+
+  bookings-mfe:
+    build:
+      context: bookings-mfe
+      args:
+        VITE_API_GATEWAY_URL: http://localhost:3000/api/v1
+    ports:
+      - "3020:3020"
+    networks:
+      - smart-hotel-network
+
+  pricing-mfe:
+    build:
+      context: pricing-mfe
+      args:
+        VITE_API_GATEWAY_URL: http://localhost:3000/api/v1
+    ports:
+      - "3030:3030"
+    networks:
+      - smart-hotel-network
+
+  shell:
+    build:
+      context: shell
+      args:
+        VITE_PROPERTIES_MFE_URL: http://localhost:3010
+        VITE_BOOKINGS_MFE_URL: http://localhost:3020
+        VITE_PRICING_MFE_URL: http://localhost:3030
+    ports:
+      - "3040:3040"
+    depends_on:
+      - properties-mfe
+      - bookings-mfe
+      - pricing-mfe
+    networks:
+      - smart-hotel-network
+
+networks:
+  smart-hotel-network:
+    external: true
