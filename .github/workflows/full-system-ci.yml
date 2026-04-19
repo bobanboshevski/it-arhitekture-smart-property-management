@@ -12,9 +12,12 @@ on:
 jobs:
   call-property:
     uses: ./.github/workflows/property-service.yml
+    secrets: inherit
 
   call-booking:
     uses: ./.github/workflows/booking-analytics.yml
+    secrets: inherit
 
   call-pricing:
     uses: ./.github/workflows/dynamic-pricing.yml
+    secrets: inherit
