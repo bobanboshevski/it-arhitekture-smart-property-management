@@ -10,6 +10,7 @@ on:
       - main
 
 jobs:
+  # ── Backend
   call-property:
     uses: ./.github/workflows/property-service.yml
     secrets: inherit
@@ -20,4 +21,30 @@ jobs:
 
   call-pricing:
     uses: ./.github/workflows/dynamic-pricing.yml
+    secrets: inherit
+
+  # ── Gateways
+  call-web-gateway:
+    uses: ./.github/workflows/web-api-gateway.yml
+    secrets: inherit
+
+  call-mobile-gateway:
+    uses: ./.github/workflows/mobile-api-gateway.yml
+    secrets: inherit
+
+  # ── Microfrontends
+  call-properties-mfe:
+    uses: ./.github/workflows/properties-mfe.yml
+    secrets: inherit
+
+  call-bookings-mfe:
+    uses: ./.github/workflows/bookings-mfe.yml
+    secrets: inherit
+
+  call-pricing-mfe:
+    uses: ./.github/workflows/pricing-mfe.yml
+    secrets: inherit
+
+  call-shell:
+    uses: ./.github/workflows/shell.yml
     secrets: inherit
