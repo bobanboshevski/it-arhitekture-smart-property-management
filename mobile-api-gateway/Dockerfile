@@ -10,6 +10,8 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src/proto ./dist/proto
-COPY .env.docker .
+
+#COPY .env.docker .
+
 EXPOSE 3001
 CMD ["node", "dist/index.js"]
