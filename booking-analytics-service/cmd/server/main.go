@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/application/service"
 	"github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/infrastructure/persistence"
 	bookingGrpc "github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/interfaces/grpc"
+	"github.com/bobanboshevski/booking-analytics-service/internal/shared/health"
 	"github.com/bobanboshevski/booking-analytics-service/internal/shared/messaging/rabbitmq"
 	"github.com/joho/godotenv"
 
@@ -74,38 +74,18 @@ func main() {
 	analyticsService := analyticsServicePkg.NewAnalyticsService(analyticsRepo, propertyClientWithCB)
 	analyticsHandler := analyticsGrpc.NewAnalyticsHandler(analyticsService)
 
-	// Health endpoint (HTTP :8081)
-	// Exposes circuit breaker state alongside basic liveness.
-	// Runs in a goroutine so it does not block the gRPC server below.
+	// ── HEALTH SERVER (HTTP :8081) ─────────────────────────────────────────────
 	go func() {
-		mux := http.NewServeMux()
-
-		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			cbState := propertyClientWithCB.State()
-
-			// Overall status is degraded if any circuit is not closed
-			status := "healthy"
-			httpStatus := http.StatusOK
-			for _, s := range cbState {
-				if s != "closed" {
-					status = "degraded"
-					httpStatus = http.StatusServiceUnavailable
-					break
-				}
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(httpStatus)
-
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"status":          status,
-				"service":         "booking-analytics-service",
-				"circuitBreakers": cbState,
-			})
+		handler := health.NewHandler(health.Dependencies{
+			DB:              db,
+			RabbitMQAlive:   publisher.IsConnected,
+			CircuitBreakers: propertyClientWithCB.State,
+			ServiceName:     "booking-analytics-service",
+			Version:         "1.0.0",
 		})
 
 		logger.Log.Info("health endpoint listening", zap.String("port", "8081"))
-		if err := http.ListenAndServe(":8081", mux); err != nil {
+		if err := http.ListenAndServe(":8081", handler); err != nil {
 			logger.Log.Fatal("health server failed", zap.Error(err))
 		}
 	}()

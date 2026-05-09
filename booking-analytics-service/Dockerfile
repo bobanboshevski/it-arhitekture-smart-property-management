@@ -16,7 +16,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # install ca certs (important for production)
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/booking-service .
 
@@ -24,5 +24,6 @@ COPY --from=builder /app/booking-service .
 #COPY .env.docker .
 
 EXPOSE 50051
+EXPOSE 8081
 
 CMD ["./booking-service"]

@@ -2,8 +2,6 @@ services:
   # DATABASES
   property-db:
     image: postgres:15
-    #    env_file:
-    #      - property-service/.env.docker
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -77,13 +75,14 @@ services:
     depends_on:
       property-db:
         condition: service_healthy
-    #    environment:
-    #      SPRING_DATASOURCE_URL: jdbc:postgresql://property-db:5432/propertydb
-    #      SPRING_DATASOURCE_USERNAME: postgres
-    #      SPRING_DATASOURCE_PASSWORD: postgres
-    #      SPRING_JPA_HIBERNATE_DDL_AUTO: update
     env_file:
       - property-service/.env.docker
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s   # Spring Boot needs time to start
     networks:
       - smart-hotel-network
 
@@ -92,8 +91,6 @@ services:
     depends_on:
       booking-db:
         condition: service_healthy
-    #    env_file:
-    #      - ./booking-analytics-service/.env.local.docker
     volumes:
       - ./booking-analytics-service/migrations:/migrations
     command: >
@@ -118,10 +115,15 @@ services:
       - booking-analytics-service/.env.docker
     environment:
       ENV_FILE: /app/.env.docker
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8081/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - smart-hotel-network
 
-  #  todo: create the docker file !
   dynamic-pricing-service:
     build: dynamic-pricing-service
     ports:
@@ -133,6 +135,12 @@ services:
         condition: service_healthy
     env_file:
       - dynamic-pricing-service/.env.docker
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:3002/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - smart-hotel-network
 

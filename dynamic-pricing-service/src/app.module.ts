@@ -12,6 +12,7 @@ import {RoomPriceOrmEntity} from "./pricing/infrastructure/persistence/entities/
 import {TypeOrmModule} from "@nestjs/typeorm";
 import {AppLogger} from "./shared/logger/logger.service";
 import {RoomPrice} from "./pricing/domain/model/room-price.entity";
+import {HealthModule} from "./health/health.module";
 
 @Module({
     imports: [
@@ -35,6 +36,8 @@ import {RoomPrice} from "./pricing/domain/model/room-price.entity";
         }),
 
         TypeOrmModule.forFeature([RoomPriceOrmEntity]),
+
+        HealthModule
     ],
     controllers: [DynamicPricingController],
     providers: [
@@ -60,47 +63,3 @@ import {RoomPrice} from "./pricing/domain/model/room-price.entity";
 })
 export class AppModule {
 }
-
-
-// @Module({
-//     imports: [
-//         ConfigModule.forRoot({ isGlobal: true }),
-//
-//         TypeOrmModule.forRoot({
-//             type: 'postgres',
-//             host: process.env.POSTGRES_HOST,
-//             port: Number(process.env.POSTGRES_PORT),
-//             username: process.env.POSTGRES_USER,
-//             password: process.env.POSTGRES_PASSWORD,
-//             database: process.env.POSTGRES_DB,
-//             entities: [RoomPriceOrmEntity],
-//             synchronize: true,
-//         }),
-//
-//         TypeOrmModule.forFeature([RoomPriceOrmEntity]),
-//     ],
-//
-//     controllers: [PricingController],
-//
-//     providers: [
-//         // DOMAIN
-//         PricingCalculatorService,
-//
-//         // USE CASES
-//         HandleBookingEventUseCase,
-//         GetRoomPriceUseCase,
-//
-//         // INFRASTRUCTURE
-//         RabbitMQConsumer,
-//
-//         // 🔥 THIS LINE IS CRITICAL
-//         PostgresRoomPriceRepository,
-//
-//         // 🔥 Interface binding
-//         {
-//             provide: 'RoomPriceRepository',
-//             useExisting: PostgresRoomPriceRepository,
-//         },
-//     ],
-// })
-// export class AppModule {}

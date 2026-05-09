@@ -68,3 +68,9 @@ func (p *Publisher) Publish(event interface{}) error {
 		},
 	)
 }
+
+// IsConnected returns true if the underlying AMQP connection is alive.
+// Used by the health checker — does not attempt reconnection.
+func (p *Publisher) IsConnected() bool {
+	return p.conn != nil && !p.conn.IsClosed()
+}
