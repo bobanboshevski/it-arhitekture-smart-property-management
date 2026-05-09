@@ -15,14 +15,16 @@ import (
 
 // business logic for bookings
 type BookingService struct {
-	repo           repository.BookingRepository
-	propertyClient *propertyclient.PropertyClient
+	repo repository.BookingRepository
+	//propertyClient *propertyclient.PropertyClient
+	propertyClient propertyclient.PropertyService
 	publisher      rabbitmq.EventPublisher // interface
 }
 
 func NewBookingService(
 	repo repository.BookingRepository,
-	pc *propertyclient.PropertyClient,
+	//pc *propertyclient.PropertyClient,
+	pc propertyclient.PropertyService, // interface
 	pub rabbitmq.EventPublisher,
 ) *BookingService {
 	return &BookingService{
@@ -38,9 +40,11 @@ func (s *BookingService) CreateBooking(roomID, guestName, startDateStr, endDateS
 	exists, err := s.propertyClient.RoomExists(roomID)
 
 	if err != nil {
-		// log internal error, but return generic error to avoid leaking details to the user
-		logger.Log.Error("failed to verify room existence", zap.Error(err), zap.String("room_id", roomID))
-		return nil, errors.New("Unable to verify room existence at this time, please try again later")
+		logger.Log.Error("failed to verify room existence",
+			zap.Error(err),
+			zap.String("room_id", roomID),
+		)
+		return nil, err // ← propagate typed error directly
 	}
 
 	if !exists {
@@ -80,8 +84,11 @@ func (s *BookingService) CreateBooking(roomID, guestName, startDateStr, endDateS
 
 	basePrice, err := s.propertyClient.GetRoomBasePrice(roomID)
 	if err != nil {
-		logger.Log.Error("failed to fetch base price", zap.Error(err))
-		return nil, errors.New("failed to fetch base price")
+		logger.Log.Error("failed to fetch base price",
+			zap.Error(err),
+			zap.String("room_id", roomID),
+		)
+		return nil, err // ← propagate typed error directly
 	}
 
 	// 5. save booking

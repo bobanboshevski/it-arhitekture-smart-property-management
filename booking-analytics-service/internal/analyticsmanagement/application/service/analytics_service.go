@@ -12,13 +12,15 @@ import (
 )
 
 type AnalyticsService struct {
-	repo           repository.AnalyticsRepository
-	propertyClient *propertyclient.PropertyClient
+	repo repository.AnalyticsRepository
+	//propertyClient *propertyclient.PropertyClient
+	propertyClient propertyclient.PropertyService
 }
 
 func NewAnalyticsService(
 	repo repository.AnalyticsRepository,
-	pc *propertyclient.PropertyClient,
+	//pc *propertyclient.PropertyClient,
+	pc propertyclient.PropertyService, // interface
 ) *AnalyticsService {
 	return &AnalyticsService{repo: repo, propertyClient: pc}
 }

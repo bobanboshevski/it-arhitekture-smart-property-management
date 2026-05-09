@@ -107,6 +107,7 @@ services:
     build: booking-analytics-service
     ports:
       - "50051:50051"
+      - "8081:8081"
     depends_on:
       booking-db:
         condition: service_healthy
@@ -138,7 +139,7 @@ services:
   web-api-gateway:
     build: web-api-gateway
     ports:
-      - "3000:3000"
+      - "3011:3000"
     depends_on:
       - booking-analytics-service
       - property-service

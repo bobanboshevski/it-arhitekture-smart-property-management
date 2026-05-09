@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	analyticsPb "github.com/bobanboshevski/booking-analytics-service/gen/analytics"
@@ -25,15 +27,11 @@ import (
 
 func main() {
 
-	// Init structured logger
+	// Logger
 	logger.InitLogger()
 	defer logger.Sync()
 
-	//err := godotenv.Load(".env.local")
-	//if err != nil {
-	//	logger.Log.Fatal("no .env file found, relying on system env")
-	//}
-
+	// Environment
 	envFile := ".env.local"
 	if os.Getenv("ENV_FILE") != "" {
 		envFile = os.Getenv("ENV_FILE")
@@ -46,37 +44,71 @@ func main() {
 
 	log.Println("RabbitMQ URL:", os.Getenv("RABBITMQ_URL")) // todo: i added for debugging
 
-	// Connect to DB
+	// Database connection
 	db, err := config.NewPostgresDB()
 	if err != nil {
 		logger.Log.Fatal("failed to connect to DB", zap.Error(err))
 	}
 	defer db.Close()
 
-	//// Initialize repository & service
-	//repo := persistence.NewPostgresBookingRepository(db)
-	//
-	//// setup property client
-	//pc := propertyclient.NewPropertyClient()
-	//
-	//service := service.NewBookingService(repo, pc)
-	//handler := bookingGrpc.NewBookingHandler(service)
-
 	// -------------------------
 	// BOOKING SETUP
 	// -------------------------
 	bookingRepo := persistence.NewPostgresBookingRepository(db)
-	pc := propertyclient.NewPropertyClient()
+
+	// 1. Raw HTTP client — handles only transport concerns
+	rawPropertyClient := propertyclient.NewPropertyClient()
+
+	// 2. Circuit breaker decorator — wraps the raw client transparently.
+	//    BookingService never knows whether the CB is open or closed.
+	propertyClientWithCB := propertyclient.NewCircuitBreakerPropertyClient(rawPropertyClient)
+
 	publisher := rabbitmq.NewPublisher() // returns *Publisher, which satisfies EventPublisher
-	bookingService := service.NewBookingService(bookingRepo, pc, publisher)
+	bookingService := service.NewBookingService(bookingRepo, propertyClientWithCB, publisher)
 	bookingHandler := bookingGrpc.NewBookingHandler(bookingService)
 
 	// -------------------------
 	// ANALYTICS SETUP
 	// -------------------------
 	analyticsRepo := analyticsPersistence.NewPostgresAnalyticsRepository(db)
-	analyticsService := analyticsServicePkg.NewAnalyticsService(analyticsRepo, pc)
+	analyticsService := analyticsServicePkg.NewAnalyticsService(analyticsRepo, propertyClientWithCB)
 	analyticsHandler := analyticsGrpc.NewAnalyticsHandler(analyticsService)
+
+	// Health endpoint (HTTP :8081)
+	// Exposes circuit breaker state alongside basic liveness.
+	// Runs in a goroutine so it does not block the gRPC server below.
+	go func() {
+		mux := http.NewServeMux()
+
+		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			cbState := propertyClientWithCB.State()
+
+			// Overall status is degraded if any circuit is not closed
+			status := "healthy"
+			httpStatus := http.StatusOK
+			for _, s := range cbState {
+				if s != "closed" {
+					status = "degraded"
+					httpStatus = http.StatusServiceUnavailable
+					break
+				}
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(httpStatus)
+
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":          status,
+				"service":         "booking-analytics-service",
+				"circuitBreakers": cbState,
+			})
+		})
+
+		logger.Log.Info("health endpoint listening", zap.String("port", "8081"))
+		if err := http.ListenAndServe(":8081", mux); err != nil {
+			logger.Log.Fatal("health server failed", zap.Error(err))
+		}
+	}()
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", ":50051")

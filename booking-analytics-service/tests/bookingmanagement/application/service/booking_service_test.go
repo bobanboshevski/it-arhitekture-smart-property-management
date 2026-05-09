@@ -1,15 +1,12 @@
 package service
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"os"
+	"fmt"
 	"testing"
 
 	"github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/application/service"
 	"github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/infrastructure/persistence"
 	"github.com/bobanboshevski/booking-analytics-service/internal/shared/logger"
-	"github.com/bobanboshevski/booking-analytics-service/internal/shared/propertyclient"
 	"github.com/bobanboshevski/booking-analytics-service/tests/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -17,37 +14,7 @@ import (
 
 // ── setup helpers ─────────────────────────────────────────────────────────────
 
-// mockPropertyServer returns an httptest.Server that says every room exists
-// except those not explicitly registered.
-func mockPropertyServer(existingRoomIDs ...string) *httptest.Server {
-	set := make(map[string]bool, len(existingRoomIDs))
-	for _, id := range existingRoomIDs {
-		set[id] = true
-	}
-
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Match /api/rooms/{id}/exists
-		for id := range set {
-			if r.URL.Path == "/api/rooms/"+id+"/exists" {
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte("true"))
-				return
-			}
-
-			if r.URL.Path == "/api/rooms/"+id+"/basePrice" {
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"price": 100.0}`))
-				return
-			}
-		}
-		// Unknown room → 404
-		w.WriteHeader(http.StatusNotFound)
-	}))
-}
-
-func setupService(t *testing.T, roomIDs ...string) (*service.BookingService, *testutils.TestDB, *httptest.Server) {
-
-	// initialing logger first - prevents nil pointer panic in service layer
+func setupService(t *testing.T, roomIDs ...string) (*service.BookingService, *testutils.TestDB) {
 	logger.InitLogger()
 
 	tdb, err := testutils.SetupPostgres()
@@ -56,25 +23,36 @@ func setupService(t *testing.T, roomIDs ...string) (*service.BookingService, *te
 		t.FailNow()
 	}
 
-	srv := mockPropertyServer(roomIDs...)
-	os.Setenv("PROPERTY_SERVICE_URL", srv.URL)
+	// Build the set of known rooms once — used by both mock functions
+	known := make(map[string]bool, len(roomIDs))
+	for _, id := range roomIDs {
+		known[id] = true
+	}
 
-	pc := propertyclient.NewPropertyClient()
+	mockPC := &testutils.MockPropertyClient{
+		RoomExistsFn: func(roomID string) (bool, error) {
+			return known[roomID], nil
+		},
+		GetBasePriceFn: func(roomID string) (float64, error) {
+			if known[roomID] {
+				return 100.0, nil
+			}
+			return 0, fmt.Errorf("room not found")
+		},
+	}
+
 	repo := persistence.NewPostgresBookingRepository(tdb.DB)
+	svc := service.NewBookingService(repo, mockPC, &testutils.NoopPublisher{})
 
-	// No RabbitMQ needed — no-op publisher swallows events silently
-	svc := service.NewBookingService(repo, pc, &testutils.NoopPublisher{})
-
-	return svc, tdb, srv
+	return svc, tdb
 }
 
 // ── CreateBooking ─────────────────────────────────────────────────────────────
 
 func TestCreateBooking_Success(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	booking, err := svc.CreateBooking(roomID, "Boban", "2026-06-01", "2026-06-05")
 	assert.NoError(t, err)
@@ -84,9 +62,8 @@ func TestCreateBooking_Success(t *testing.T) {
 }
 
 func TestCreateBooking_RoomDoesNotExist(t *testing.T) {
-	svc, tdb, srv := setupService(t) // no rooms registered → all 404
+	svc, tdb := setupService(t) // no rooms registered → all 404
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	_, err := svc.CreateBooking(uuid.New().String(), "Boban", "2026-06-01", "2026-06-05")
 	assert.Error(t, err)
@@ -95,9 +72,8 @@ func TestCreateBooking_RoomDoesNotExist(t *testing.T) {
 
 func TestCreateBooking_InvalidStartDate(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	_, err := svc.CreateBooking(roomID, "Boban", "not-a-date", "2026-06-05")
 	assert.Error(t, err)
@@ -106,9 +82,8 @@ func TestCreateBooking_InvalidStartDate(t *testing.T) {
 
 func TestCreateBooking_InvalidEndDate(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	_, err := svc.CreateBooking(roomID, "Boban", "2026-06-01", "bad-date")
 	assert.Error(t, err)
@@ -117,9 +92,8 @@ func TestCreateBooking_InvalidEndDate(t *testing.T) {
 
 func TestCreateBooking_EndBeforeStart(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	_, err := svc.CreateBooking(roomID, "Boban", "2026-06-10", "2026-06-01")
 	assert.Error(t, err)
@@ -128,9 +102,8 @@ func TestCreateBooking_EndBeforeStart(t *testing.T) {
 
 func TestCreateBooking_Overlap(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	_, err := svc.CreateBooking(roomID, "Alice", "2026-06-01", "2026-06-10")
 	assert.NoError(t, err)
@@ -144,9 +117,8 @@ func TestCreateBooking_Overlap(t *testing.T) {
 
 func TestGetBooking_Found(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	created, err := svc.CreateBooking(roomID, "Boban", "2026-07-01", "2026-07-05")
 	assert.NoError(t, err)
@@ -158,9 +130,8 @@ func TestGetBooking_Found(t *testing.T) {
 }
 
 func TestGetBooking_NotFound(t *testing.T) {
-	svc, tdb, srv := setupService(t)
+	svc, tdb := setupService(t)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	found, err := svc.GetBooking(uuid.New().String())
 	assert.NoError(t, err) // not found is not an error at service level
@@ -171,9 +142,8 @@ func TestGetBooking_NotFound(t *testing.T) {
 
 func TestUpdateBooking_Success(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	created, err := svc.CreateBooking(roomID, "Original", "2026-08-01", "2026-08-05")
 	assert.NoError(t, err)
@@ -185,9 +155,8 @@ func TestUpdateBooking_Success(t *testing.T) {
 }
 
 func TestUpdateBooking_NotFound(t *testing.T) {
-	svc, tdb, srv := setupService(t)
+	svc, tdb := setupService(t)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	result, err := svc.UpdateBooking(uuid.New().String(), "X", "2026-08-01", "2026-08-05")
 	assert.NoError(t, err) // service returns nil,nil for not-found
@@ -196,9 +165,8 @@ func TestUpdateBooking_NotFound(t *testing.T) {
 
 func TestUpdateBooking_InvalidDates(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	created, err := svc.CreateBooking(roomID, "Boban", "2026-08-01", "2026-08-05")
 	assert.NoError(t, err)
@@ -210,9 +178,8 @@ func TestUpdateBooking_InvalidDates(t *testing.T) {
 
 func TestUpdateBooking_Overlap(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	// First booking occupies Aug 20-25
 	_, err := svc.CreateBooking(roomID, "Alice", "2026-08-20", "2026-08-25")
@@ -231,9 +198,8 @@ func TestUpdateBooking_Overlap(t *testing.T) {
 
 func TestDeleteBooking_Success(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	created, err := svc.CreateBooking(roomID, "Boban", "2026-09-01", "2026-09-05")
 	assert.NoError(t, err)
@@ -250,9 +216,8 @@ func TestDeleteBooking_Success(t *testing.T) {
 
 func TestGetBookingsByRoom(t *testing.T) {
 	roomID := uuid.New().String()
-	svc, tdb, srv := setupService(t, roomID)
+	svc, tdb := setupService(t, roomID)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	_, _ = svc.CreateBooking(roomID, "Alice", "2026-10-01", "2026-10-05")
 	_, _ = svc.CreateBooking(roomID, "Bob", "2026-10-10", "2026-10-15")
@@ -263,9 +228,8 @@ func TestGetBookingsByRoom(t *testing.T) {
 }
 
 func TestGetBookingsByRoom_Empty(t *testing.T) {
-	svc, tdb, srv := setupService(t)
+	svc, tdb := setupService(t)
 	defer tdb.TearDown()
-	defer srv.Close()
 
 	bookings, err := svc.GetBookingsByRoom(uuid.New().String())
 	assert.NoError(t, err)

@@ -5,7 +5,7 @@ import {
     Logger,
     NotFoundException,
     InternalServerErrorException,
-    BadRequestException,
+    BadRequestException, ServiceUnavailableException,
 } from '@nestjs/common';
 import type {ClientGrpc} from '@nestjs/microservices';
 import {Observable, firstValueFrom} from 'rxjs';
@@ -42,6 +42,7 @@ export class BookingService implements OnModuleInit {
 
     constructor(@Inject('BOOKING_PACKAGE') private client: ClientGrpc) {
     }
+
     // todo: i need explanation how ClientGrpc works... and everything related to it (observable etc.)
 
     onModuleInit() {
@@ -121,6 +122,7 @@ export class BookingService implements OnModuleInit {
 
         if (code === 5) throw new NotFoundException(message);         // NOT_FOUND
         if (code === 3) throw new BadRequestException(message);       // INVALID_ARGUMENT
+        if (code === 14) throw new ServiceUnavailableException(message);      // UNAVAILABLE
         throw new InternalServerErrorException('Booking service error');
     }
 }

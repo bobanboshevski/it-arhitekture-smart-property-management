@@ -2,10 +2,12 @@ package grpc
 
 import (
 	"context"
+	stderrors "errors" // aliased to avoid conflict with our errors package
 
 	pb "github.com/bobanboshevski/booking-analytics-service/gen/booking"
 	"github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/application/service"
 	"github.com/bobanboshevski/booking-analytics-service/internal/bookingmanagement/interfaces/dto"
+	"github.com/bobanboshevski/booking-analytics-service/internal/shared/apperrors"
 	"github.com/bobanboshevski/booking-analytics-service/internal/shared/errors"
 	"github.com/bobanboshevski/booking-analytics-service/internal/shared/logger"
 	"go.uber.org/zap"
@@ -38,32 +40,9 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *pb.CreateBookin
 
 	// Call service layer
 	booking, err := h.service.CreateBooking(dtoReq.RoomID, dtoReq.GuestName, dtoReq.StartDate, dtoReq.EndDate)
-	//if err != nil {
-	//	logger.Log.Error("failed to create booking", zap.Error(err))
-	//	return nil, errors.WrapError(codes.Internal, "failed to create booking", err)
-	//}
 
 	if err != nil {
-		// Map service errors to gRPC codes
-		switch err.Error() {
-		case "room does not exist":
-			return nil, errors.WrapError(codes.InvalidArgument, "room does not exist", nil)
-
-		case "room already booked for selected dates":
-			return nil, errors.WrapError(codes.InvalidArgument, err.Error(), nil)
-
-		case "invalid start date format, use YYYY-MM-DD",
-			"invalid end date format, use YYYY-MM-DD",
-			"end date must be after start date":
-			return nil, errors.WrapError(codes.InvalidArgument, err.Error(), nil)
-
-		case "unable to save booking, please try again later",
-			"unable to verify room, please try again later":
-			return nil, errors.WrapError(codes.Internal, "internal error, please try again later", nil)
-
-		default:
-			return nil, errors.WrapError(codes.Internal, "internal error, please try again later", nil)
-		}
+		return nil, mapBookingError(err)
 	}
 
 	logger.Log.Info("booking created successfully", zap.String("booking_id", booking.ID))
@@ -84,6 +63,62 @@ func (h *BookingHandler) CreateBooking(ctx context.Context, req *pb.CreateBookin
 	// No internal error messages exposed: User sees friendly messages (room does not exist, internal error, please try again later).
 	// Logging: Only logs internally, including request info and error for debugging.
 	// Switch-case mapping ensures structured, user-friendly responses
+}
+
+// mapBookingError converts service-layer errors to gRPC status errors.
+// Circuit breaker typed errors are checked first with errors.As() so they
+// are never swallowed by the string-match cases below.
+func mapBookingError(err error) error {
+	// ── Circuit breaker errors — checked by type, not string ────────────────
+
+	var cbOpen *apperrors.CircuitOpenError
+	if stderrors.As(err, &cbOpen) {
+		logger.Log.Error("circuit open — failing fast",
+			zap.String("service", cbOpen.Service),
+			zap.String("method", cbOpen.Method),
+		)
+		// codes.Unavailable tells the client "retry later" — semantically correct
+		return errors.WrapError(codes.Unavailable, cbOpen.Error(), nil)
+	}
+
+	var cbHalfOpen *apperrors.CircuitHalfOpenError
+	if stderrors.As(err, &cbHalfOpen) {
+		logger.Log.Warn("circuit half-open — probe in progress",
+			zap.String("service", cbHalfOpen.Service),
+		)
+		return errors.WrapError(codes.Unavailable, cbHalfOpen.Error(), nil)
+	}
+
+	// ── Raw HTTP dependency failure (before circuit opens) ────────────────
+	var depErr *apperrors.DependencyError
+	if stderrors.As(err, &depErr) {
+		logger.Log.Error("dependency call failed",
+			zap.String("service", depErr.Service),
+			zap.String("method", depErr.Method),
+			zap.Error(depErr.Cause),
+		)
+		return errors.WrapError(codes.Unavailable, depErr.Error(), nil)
+	}
+
+	// ── Domain / validation errors — string match is safe here because
+	//    these strings are owned by this codebase and never change without
+	//    a deliberate decision. ──────────────────────────────────────────────
+
+	switch err.Error() {
+	case "room does not exist":
+		return errors.WrapError(codes.InvalidArgument, "room does not exist", nil)
+	case "room already booked for selected dates":
+		return errors.WrapError(codes.InvalidArgument, err.Error(), nil)
+	case "invalid start date format, use YYYY-MM-DD",
+		"invalid end date format, use YYYY-MM-DD",
+		"end date must be after start date":
+		return errors.WrapError(codes.InvalidArgument, err.Error(), nil)
+	case "unable to save booking, please try again later":
+		return errors.WrapError(codes.Internal, err.Error(), nil)
+	default:
+		logger.Log.Error("unhandled booking error", zap.Error(err))
+		return errors.WrapError(codes.Internal, "internal error, please try again later", nil)
+	}
 }
 
 func (h *BookingHandler) GetBooking(ctx context.Context, req *pb.GetBookingRequest) (*pb.BookingResponse, error) {
