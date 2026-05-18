@@ -86,19 +86,19 @@ services:
     networks:
       - smart-hotel-network
 
-  booking-migrate:
-    image: migrate/migrate:v4.19.1
-    depends_on:
-      booking-db:
-        condition: service_healthy
-    volumes:
-      - ./booking-analytics-service/migrations:/migrations
-    command: >
-      -path /migrations
-      -database postgres://${BOOKING_POSTGRES_USER}:${BOOKING_POSTGRES_PASSWORD}@${BOOKING_POSTGRES_HOST}:${BOOKING_POSTGRES_PORT}/${BOOKING_POSTGRES_DB}?sslmode=disable
-      up
-    networks:
-      - smart-hotel-network
+  #  booking-migrate:
+  #    image: migrate/migrate:v4.19.1
+  #    depends_on:
+  #      booking-db:
+  #        condition: service_healthy
+  #    volumes:
+  #      - ./booking-analytics-service/migrations:/migrations
+  #    command: >
+  #      -path /migrations
+  #      -database postgres://${BOOKING_POSTGRES_USER}:${BOOKING_POSTGRES_PASSWORD}@${BOOKING_POSTGRES_HOST}:${BOOKING_POSTGRES_PORT}/${BOOKING_POSTGRES_DB}?sslmode=disable
+  #      up
+  #    networks:
+  #      - smart-hotel-network
 
   booking-analytics-service:
     build: booking-analytics-service

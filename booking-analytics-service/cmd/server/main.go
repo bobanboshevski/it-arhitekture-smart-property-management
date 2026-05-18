@@ -51,6 +51,14 @@ func main() {
 	}
 	defer db.Close()
 
+	// Run migrations before starting any server.
+	// The service will exit with a fatal error if migrations fail —
+	// this is intentional. A service running against an outdated schema
+	// is more dangerous than a service that refuses to start.
+	if err := config.RunMigrations(db, "./migrations"); err != nil {
+		logger.Log.Fatal("failed to run migrations", zap.Error(err))
+	}
+
 	// -------------------------
 	// BOOKING SETUP
 	// -------------------------

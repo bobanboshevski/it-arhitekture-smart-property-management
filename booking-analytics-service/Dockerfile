@@ -20,6 +20,9 @@ RUN apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/booking-service .
 
+COPY --from=builder /app/migrations ./migrations
+
+
 # i commented it, because the image needs to be environment-agnostic
 #COPY .env.docker .
 
