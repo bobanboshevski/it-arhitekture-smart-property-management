@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push (local)
         uses: docker/build-push-action@v6
         with:
           context: ./smart-hotel-frontend/shell
@@ -34,3 +34,16 @@ jobs:
             VITE_PRICING_MFE_URL=http://localhost:3030
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/smart-hotel-shell:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/smart-hotel-shell:buildcache,mode=max
+
+      - name: Build and push (openshift)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./smart-hotel-frontend/shell
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/smart-hotel-shell:openshift
+          build-args: |
+            VITE_PROPERTIES_MFE_URL=${{ secrets.OPENSHIFT_PROPERTIES_MFE_URL }}
+            VITE_BOOKINGS_MFE_URL=${{ secrets.OPENSHIFT_BOOKINGS_MFE_URL }}
+            VITE_PRICING_MFE_URL=${{ secrets.OPENSHIFT_PRICING_MFE_URL }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/smart-hotel-shell:buildcache

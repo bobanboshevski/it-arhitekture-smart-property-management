@@ -67,7 +67,7 @@ jobs:
         environment:
           - name: local
             tags: latest,${{ github.sha }}
-            api_gateway_url: http://localhost:3000/api/v1
+            api_gateway_url: http://localhost:3011/api/v1
           - name: openshift
             tags: openshift
             api_gateway_url: OPENSHIFT

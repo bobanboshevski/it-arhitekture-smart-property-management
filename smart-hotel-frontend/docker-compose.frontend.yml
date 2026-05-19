@@ -42,7 +42,7 @@ services:
       args:
         VITE_API_GATEWAY_URL: http://localhost:3011/api/v1
     ports:
-      - "3010:3010"
+      - "3010:8080" # because of the rootless nginx
     networks:
       - smart-hotel-network
 
@@ -52,7 +52,7 @@ services:
       args:
         VITE_API_GATEWAY_URL: http://localhost:3011/api/v1
     ports:
-      - "3020:3020"
+      - "3020:8080"
     networks:
       - smart-hotel-network
 
@@ -62,7 +62,7 @@ services:
       args:
         VITE_API_GATEWAY_URL: http://localhost:3011/api/v1
     ports:
-      - "3030:3030"
+      - "3030:8080"
     networks:
       - smart-hotel-network
 
@@ -74,7 +74,7 @@ services:
         VITE_BOOKINGS_MFE_URL: http://localhost:3020
         VITE_PRICING_MFE_URL: http://localhost:3030
     ports:
-      - "3040:3040"
+      - "3040:8080"
     depends_on:
       - properties-mfe
       - bookings-mfe

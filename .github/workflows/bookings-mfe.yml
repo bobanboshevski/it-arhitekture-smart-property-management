@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push (local)
         uses: docker/build-push-action@v6
         with:
           context: ./smart-hotel-frontend/bookings-mfe
@@ -29,6 +29,17 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/bookings-mfe:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/bookings-mfe:${{ github.sha }}
           build-args: |
-            VITE_API_GATEWAY_URL=http://localhost:3000/api/v1
+            VITE_API_GATEWAY_URL=http://localhost:3011/api/v1
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/bookings-mfe:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/bookings-mfe:buildcache,mode=max
+
+      - name: Build and push (openshift)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./smart-hotel-frontend/bookings-mfe
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/bookings-mfe:openshift
+          build-args: |
+            VITE_API_GATEWAY_URL=${{ secrets.OPENSHIFT_API_GATEWAY_URL }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/bookings-mfe:buildcache
