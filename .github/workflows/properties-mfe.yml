@@ -1,34 +1,142 @@
+#name: Properties MFE CI
+#
+#on:
+#  workflow_call:
+#  workflow_dispatch:
+#
+#jobs:
+#  build-and-push:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v4
+#
+#      - name: Set up Docker Buildx
+#        uses: docker/setup-buildx-action@v3
+#
+#      - name: Log in to Docker Hub
+#        uses: docker/login-action@v3
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#
+#      - name: Build and push (local)
+#        uses: docker/build-push-action@v6
+#        with:
+#          context: ./smart-hotel-frontend/properties-mfe
+#          push: true
+#          tags: |
+#            ${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:latest
+#            ${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:${{ github.sha }}
+#          build-args: |
+#            VITE_API_GATEWAY_URL=http://localhost:3000/api/v1
+#          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:buildcache
+#          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:buildcache,mode=max
+#
+#      # ── OpenShift image (for OpenShift Sandbox)
+#      # Built with the actual OpenShift Route URL baked in.
+#      # The :openshift tag is what you reference when deploying to OpenShift.
+#      - name: Build and push (openshift)
+#        uses: docker/build-push-action@v6
+#        with:
+#          context: ./smart-hotel-frontend/properties-mfe
+#          push: true
+#          tags: |
+#            ${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:openshift
+#          build-args: |
+#            VITE_API_GATEWAY_URL=${{ secrets.OPENSHIFT_API_GATEWAY_URL }}
+#          # Reuses the cache warmed by the local build above — no extra download
+#          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:buildcache
+
+
 name: Properties MFE CI
 
 on:
   workflow_call:
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: properties-mfe
+  CONTEXT_PATH: ./smart-hotel-frontend/properties-mfe
+
 jobs:
-  build-and-push:
+  docker-build:
+    name: Build & Push (${{ matrix.environment.name }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - name: local
+            docker_tags: |
+              latest
+              ${{ github.sha }}
+            api_gateway_url: http://localhost:3000/api/v1
+
+          - name: openshift
+            docker_tags: |
+              openshift
+            api_gateway_url: ${{ secrets.OPENSHIFT_API_GATEWAY_URL }}
+
     steps:
+      # --------------------------------------------------------
+      # Checkout source code
+      # --------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # Enable advanced Docker builder
+      # --------------------------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # --------------------------------------------------------
+      # Authenticate to Docker Hub
+      # --------------------------------------------------------
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      # --------------------------------------------------------
+      # Generate full image tags dynamically
+      # --------------------------------------------------------
+      - name: Generate Docker tags
+        id: tags
+        run: |
+          TAGS=""
+          
+          while IFS= read -r tag; do
+            TAGS="${TAGS}${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${tag}"$'\n'
+          done <<< "${{ matrix.environment.docker_tags }}"
+
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # --------------------------------------------------------
+      # Build & Push Docker image
+      # --------------------------------------------------------
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./smart-hotel-frontend/properties-mfe
+          context: ${{ env.CONTEXT_PATH }}
+
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:${{ github.sha }}
+
+          tags: ${{ steps.tags.outputs.tags }}
+
           build-args: |
-            VITE_API_GATEWAY_URL=http://localhost:3000/api/v1
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:buildcache,mode=max
+            VITE_API_GATEWAY_URL=${{ matrix.environment.api_gateway_url }}
+
+          # ----------------------------------------------------
+          # Docker layer cache
+          # ----------------------------------------------------
+          cache-from: |
+            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache
+
+          cache-to: |
+            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
