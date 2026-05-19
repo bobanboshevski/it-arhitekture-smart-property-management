@@ -48,7 +48,6 @@
 #          # Reuses the cache warmed by the local build above — no extra download
 #          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/properties-mfe:buildcache
 
-
 name: Properties MFE CI
 
 on:
@@ -66,6 +65,7 @@ jobs:
 
     strategy:
       fail-fast: false
+
       matrix:
         environment:
           - name: local
@@ -77,7 +77,7 @@ jobs:
           - name: openshift
             docker_tags: |
               openshift
-            api_gateway_url: ${{ secrets.OPENSHIFT_API_GATEWAY_URL }}
+            api_gateway_url: OPENSHIFT
 
     steps:
       # --------------------------------------------------------
@@ -87,13 +87,13 @@ jobs:
         uses: actions/checkout@v4
 
       # --------------------------------------------------------
-      # Enable advanced Docker builder
+      # Setup Docker Buildx
       # --------------------------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       # --------------------------------------------------------
-      # Authenticate to Docker Hub
+      # Docker Hub Login
       # --------------------------------------------------------
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -102,13 +102,25 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # --------------------------------------------------------
-      # Generate full image tags dynamically
+      # Resolve API Gateway URL
+      # --------------------------------------------------------
+      - name: Resolve API Gateway URL
+        id: api-url
+        run: |
+          if [ "${{ matrix.environment.api_gateway_url }}" = "OPENSHIFT" ]; then
+            echo "url=${{ secrets.OPENSHIFT_API_GATEWAY_URL }}" >> $GITHUB_OUTPUT
+          else
+            echo "url=${{ matrix.environment.api_gateway_url }}" >> $GITHUB_OUTPUT
+          fi
+
+      # --------------------------------------------------------
+      # Generate Docker tags
       # --------------------------------------------------------
       - name: Generate Docker tags
         id: tags
         run: |
           TAGS=""
-          
+
           while IFS= read -r tag; do
             TAGS="${TAGS}${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${tag}"$'\n'
           done <<< "${{ matrix.environment.docker_tags }}"
@@ -118,7 +130,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------------
-      # Build & Push Docker image
+      # Build and Push Docker Image
       # --------------------------------------------------------
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -130,13 +142,10 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
 
           build-args: |
-            VITE_API_GATEWAY_URL=${{ matrix.environment.api_gateway_url }}
+            VITE_API_GATEWAY_URL=${{ steps.api-url.outputs.url }}
 
-          # ----------------------------------------------------
-          # Docker layer cache
-          # ----------------------------------------------------
           cache-from: |
-            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache
+            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ matrix.environment.name }}-buildcache
 
           cache-to: |
-            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ matrix.environment.name }}-buildcache,mode=max
